@@ -6,6 +6,8 @@
 
 RM := rm -rf
 
+all:
+
 # All of the sources participating in the build are defined here
 -include sources.mk
 -include Startup/subdir.mk
@@ -27,7 +29,7 @@ endif
 
 SRC_PATH = Drivers/CMSIS
 
-# Add inputs and outputs from these tool invocations to the build variables 
+# Add inputs and outputs from these tool invocations to the build variables
 
 # All Target
 all: build EBiCS_Firmware.elf

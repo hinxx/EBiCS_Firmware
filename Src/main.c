@@ -6,7 +6,7 @@
   ******************************************************************************
   ** This notice applies to any and all portions of this file
   * that are not between comment pairs USER CODE BEGIN and
-  * USER CODE END. Other portions of this file, whether 
+  * USER CODE END. Other portions of this file, whether
   * inserted by the user or by software development tools
   * are owned by their respective copyright owners.
   *
@@ -71,6 +71,10 @@
 
 #if (DISPLAY_TYPE == DISPLAY_TYPE_EBiCS)
   #include "display_ebics.h"
+#endif
+
+#if (DISPLAY_TYPE == DISPLAY_TYPE_ECORIDE)
+  #include "display_ecoride.h"
 #endif
 
 
@@ -236,6 +240,10 @@ uint8_t ui8_additional_LEV_Page_counter=0;
 uint8_t ui8_LEV_Page_to_send=1;
 #endif
 
+#if (DISPLAY_TYPE & DISPLAY_TYPE_ECORIDE)
+ECORIDE_t ER;
+#endif
+
 
 
 MotorState_t MS;
@@ -270,7 +278,7 @@ void init_watchdog(void);
 void MX_IWDG_Init(void);
 void get_internal_temp_offset(void);
 void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
-                                
+
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
@@ -280,6 +288,10 @@ void kingmeter_update(void);
 
 #if (DISPLAY_TYPE == DISPLAY_TYPE_BAFANG)
 void bafang_update(void);
+#endif
+
+#if (DISPLAY_TYPE & DISPLAY_TYPE_ECORIDE)
+void ecoride_update(void);
 #endif
 
 static void dyn_adc_state(q31_t angle);
@@ -472,6 +484,10 @@ int main(void)
      //  ebics_init();
 #endif
 
+#if (DISPLAY_TYPE & DISPLAY_TYPE_ECORIDE)
+       Ecoride_Init(&ER);
+#endif
+
 
     TIM1->CCR1 = 1023; //set initial PWM values
     TIM1->CCR2 = 1023;
@@ -636,6 +652,7 @@ int main(void)
 	  }*/
 	  //display message processing
 	  if(ui8_UART_flag){
+
 #if (DISPLAY_TYPE & DISPLAY_TYPE_KINGMETER||DISPLAY_TYPE & DISPLAY_TYPE_DEBUG)
 	  //kingmeter_update();
 
@@ -655,6 +672,10 @@ int main(void)
 
 #if (DISPLAY_TYPE & DISPLAY_TYPE_EBiCS)
 	//  process_ant_page(&MS, &MP);
+#endif
+
+#if (DISPLAY_TYPE & DISPLAY_TYPE_ECORIDE)
+	  Ecoride_Service(&ER);
 #endif
 
 	  ui8_UART_flag=0;
@@ -824,6 +845,10 @@ int main(void)
 
 		#if (DISPLAY_TYPE == DISPLAY_TYPE_DEBUG)
 			 uint16_mapped_PAS = map(uint32_PAS, RAMP_END, PAS_TIMEOUT, PH_CURRENT_MAX, 0); // Full amps in debug mode
+		#endif
+
+		#if (DISPLAY_TYPE == DISPLAY_TYPE_ECORIDE_C2)
+			  uint16_mapped_PAS = map(uint32_PAS, RAMP_END, PAS_TIMEOUT, ((PH_CURRENT_MAX*(int32_t)(MS.assist_level)))>>8, 0); // level in range 0...255
 		#endif
 
 
@@ -1110,7 +1135,7 @@ void SystemClock_Config(void)
   RCC_ClkInitTypeDef RCC_ClkInitStruct;
   RCC_PeriphCLKInitTypeDef PeriphClkInit;
 
-    /**Initializes the CPU, AHB and APB busses clocks 
+    /**Initializes the CPU, AHB and APB busses clocks
     */
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
@@ -1123,7 +1148,7 @@ void SystemClock_Config(void)
     _Error_Handler(__FILE__, __LINE__);
   }
 
-    /**Initializes the CPU, AHB and APB busses clocks 
+    /**Initializes the CPU, AHB and APB busses clocks
     */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
@@ -1144,11 +1169,11 @@ void SystemClock_Config(void)
     _Error_Handler(__FILE__, __LINE__);
   }
 
-    /**Configure the Systick interrupt time 
+    /**Configure the Systick interrupt time
     */
   HAL_SYSTICK_Config(HAL_RCC_GetHCLKFreq()/1000);
 
-    /**Configure the Systick 
+    /**Configure the Systick
     */
   HAL_SYSTICK_CLKSourceConfig(SYSTICK_CLKSOURCE_HCLK);
 
@@ -1165,7 +1190,7 @@ static void MX_ADC1_Init(void)
   ADC_InjectionConfTypeDef sConfigInjected;
   ADC_ChannelConfTypeDef sConfig;
 
-    /**Common config 
+    /**Common config
     */
   hadc1.Instance = ADC1;
   hadc1.Init.ScanConvMode = ADC_SCAN_ENABLE; //Scan muÃ fÃ¼r getriggerte Wandlung gesetzt sein
@@ -1182,7 +1207,7 @@ static void MX_ADC1_Init(void)
     _Error_Handler(__FILE__, __LINE__);
   }
 
-    /**Configure the ADC multi-mode 
+    /**Configure the ADC multi-mode
     */
   multimode.Mode = ADC_DUALMODE_REGSIMULT_INJECSIMULT;
   if (HAL_ADCEx_MultiModeConfigChannel(&hadc1, &multimode) != HAL_OK)
@@ -1190,7 +1215,7 @@ static void MX_ADC1_Init(void)
     _Error_Handler(__FILE__, __LINE__);
   }
 
-    /**Configure Injected Channel 
+    /**Configure Injected Channel
     */
   sConfigInjected.InjectedChannel = ADC_CHANNEL_4;
   sConfigInjected.InjectedRank = ADC_INJECTED_RANK_1;
@@ -1292,7 +1317,7 @@ static void MX_ADC2_Init(void)
 
   ADC_InjectionConfTypeDef sConfigInjected;
 
-    /**Common config 
+    /**Common config
     */
   hadc2.Instance = ADC2;
   hadc2.Init.ScanConvMode = ADC_SCAN_ENABLE; //hier auch Scan enable?!
@@ -1306,7 +1331,7 @@ static void MX_ADC2_Init(void)
     _Error_Handler(__FILE__, __LINE__);
   }
 
-    /**Configure Injected Channel 
+    /**Configure Injected Channel
     */
   sConfigInjected.InjectedChannel = ADC_CHANNEL_5;
   sConfigInjected.InjectedRank = ADC_INJECTED_RANK_1;
@@ -1528,6 +1553,8 @@ static void MX_USART1_UART_Init(void)
   huart1.Init.BaudRate = 9600;
 #elif (DISPLAY_TYPE == DISPLAY_TYPE_BAFANG)
   huart1.Init.BaudRate = 1200;
+#elif (DISPLAY_TYPE == DISPLAY_TYPE_ECORIDE)
+  huart1.Init.BaudRate = 9600;
 #else
   huart1.Init.BaudRate = 56000;
 #endif
@@ -1546,10 +1573,10 @@ static void MX_USART1_UART_Init(void)
   __HAL_UART_ENABLE_IT(&huart1, UART_IT_IDLE);
 }
 
-/** 
+/**
   * Enable DMA controller clock
   */
-static void MX_DMA_Init(void) 
+static void MX_DMA_Init(void)
 {
   /* DMA controller clock enable */
   __HAL_RCC_DMA1_CLK_ENABLE();
@@ -1569,9 +1596,9 @@ static void MX_DMA_Init(void)
 
 }
 
-/** Configure pins as 
-        * Analog 
-        * Input 
+/** Configure pins as
+        * Analog
+        * Input
         * Output
         * EVENT_OUT
         * EXTI
@@ -1988,6 +2015,10 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *UartHandle) {
 //       ebics_init();
 #endif
 
+#if (DISPLAY_TYPE == DISPLAY_TYPE_ECORIDE)
+	Ecoride_Init(&ER);
+#endif
+
 }
 
 void get_internal_temp_offset(void){
@@ -2078,6 +2109,72 @@ void kingmeter_update(void)
 
 }
 
+#endif
+
+
+#if (DISPLAY_TYPE & DISPLAY_TYPE_ECORIDE)
+void ecoride_update(void)
+{
+    /* Prepare Tx parameters */
+    if(battery_percent_fromcapacity > 10)
+    {
+        ER.Tx.Battery = KM_BATTERY_NORMAL;
+    }
+    else
+    {
+        ER.Tx.Battery = KM_BATTERY_LOW;
+    }
+
+#if (SPEEDSOURCE  == EXTERNAL)
+	ER.Tx.Wheeltime_ms = ((MS.Speed>>3)*PULSES_PER_REVOLUTION); //>>3 because of 8 kHz counter frequency, so 8 tics per ms
+#else
+	if(__HAL_TIM_GET_COUNTER(&htim2) < 12000)
+	{
+    	ER.Tx.Wheeltime_ms = (MS.Speed*GEAR_RATIO*6)>>9; //>>9 because of 500kHZ timer2 frequency, 512 tics per ms should be OK *6 because of 6 hall interrupts per electric revolution.
+    }
+    else
+    {
+        ER.Tx.Wheeltime_ms = 64000;
+    }
+#endif
+
+    if (MS.Temperature>130)
+		ER.Tx.Error = KM_ERROR_OVHT;
+    else if (MS.int_Temperature > 80)
+		ER.Tx.Error = KM_ERROR_IOVHT;
+    else
+		ER.Tx.Error = KM_ERROR_NONE;
+
+    ER.Tx.Current_x10 = (uint16_t) (MS.Battery_Current/100); //MS.Battery_Current is in mA
+
+    /* Receive Rx parameters/settings and send Tx parameters */
+	// KingMeter_Service(&KM);
+
+    /* Apply Rx parameters */
+    MS.assist_level = ER.Rx.AssistLevel;
+
+    if (ER.Rx.Headlight == KM_HEADLIGHT_OFF)
+	{
+		HAL_GPIO_WritePin(LIGHT_GPIO_Port, LIGHT_Pin, GPIO_PIN_RESET);
+	}
+	else // KM_HEADLIGHT_ON
+	{
+		HAL_GPIO_WritePin(LIGHT_GPIO_Port, LIGHT_Pin, GPIO_PIN_SET);
+	}
+
+	// C2: What to do here ?!
+    // if(KM.Rx.PushAssist == KM_PUSHASSIST_ON)
+    // {
+    // 	ui8_Push_Assist_flag=1;
+    // }
+    // else
+    // {
+    // 	ui8_Push_Assist_flag=0;
+    // }
+
+//    MP.speedLimit=KM.Rx.SPEEDMAX_Limit;
+//    MP.battery_current_max = KM.Rx.CUR_Limit_mA;
+}
 #endif
 
 #if (DISPLAY_TYPE == DISPLAY_TYPE_BAFANG)
@@ -2557,7 +2654,7 @@ void _Error_Handler(char *file, int line)
   * @retval None
   */
 void assert_failed(uint8_t* file, uint32_t line)
-{ 
+{
   /* USER CODE BEGIN 6 */
   /* User can add his own implementation to report the file name and line number,
      tex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */

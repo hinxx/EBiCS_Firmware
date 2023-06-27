@@ -1,0 +1,8 @@
+{
+    "files.exclude": {
+        "JavaConfigurator/**": true
+    },
+    "search.exclude": {
+        "JavaConfigurator/**": true
+    }
+}

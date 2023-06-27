@@ -13,7 +13,7 @@
                 "STM32F103x6=1",
                 "USE_HAL_DRIVER=1"
             ],
-            "compilerPath": "/data/data/ecoride/gcc-arm-none-eabi-9-2020-q2-update/bin/arm-none-eabi-gcc",
+            "compilerPath": "${workspaceFolder}/../gcc-arm-none-eabi-9-2020-q2-update/bin/arm-none-eabi-gcc",
             "cStandard": "c89",
             "cppStandard": "c++98",
             "intelliSenseMode": "linux-gcc-arm"

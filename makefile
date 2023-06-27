@@ -30,20 +30,23 @@ SRC_PATH = Drivers/CMSIS
 # Add inputs and outputs from these tool invocations to the build variables 
 
 # All Target
-all: LishuiFOC_01.elf
+all: build EBiCS_Firmware.elf
 
 # Tool invocations
-LishuiFOC_01.elf: $(OBJS) $(USER_OBJS) STM32F103C6Tx_FLASH_Bootloader.ld
+EBiCS_Firmware.elf: $(OBJS) $(USER_OBJS) STM32F103C6Tx_FLASH_Bootloader.ld
 	@echo 'Building target: $@'
-	@echo 'Invoking: MCU GCC Linker'
+#	@echo 'Invoking: MCU GCC Linker'
 	arm-none-eabi-gcc -mcpu=cortex-m3 -mthumb -mfloat-abi=soft -L $(SRC_PATH) -specs=nosys.specs -specs=nano.specs -T"STM32F103C6Tx_FLASH_Bootloader.ld" -Wl,-Map=output.map -Wl,--gc-sections -o "build/EBiCS_Firmware.elf" @"objects.list" $(USER_OBJS) $(LIBS) -lm
-	@echo 'Finished building target: $@'
-	@echo ' '
+#	@echo 'Finished building target: $@'
+#	@echo ' '
 	$(MAKE) --no-print-directory post-build
+
+build:
+	mkdir build
 
 # Other Targets
 clean:
-	-$(RM) *
+	-$(RM) build/*
 	-@echo ' '
 
 post-build:

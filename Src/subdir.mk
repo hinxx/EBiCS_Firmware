@@ -7,6 +7,7 @@ C_SRCS += \
 Src/FOC.c \
 Src/display_bafang.c \
 Src/display_kingmeter.c \
+Src/display_ecoride.c \
 Src/display_kunteng.c \
 Src/eeprom.c \
 Src/main.c \
@@ -19,6 +20,7 @@ OBJS += \
 build/FOC.o \
 build/display_bafang.o \
 build/display_kingmeter.o \
+build/display_ecoride.o \
 build/display_kunteng.o \
 build/eeprom.o \
 build/main.o \
@@ -31,6 +33,7 @@ C_DEPS += \
 build/FOC.d \
 build/display_bafang.d \
 build/display_kingmeter.d \
+build/display_ecoride.d \
 build/display_kunteng.d \
 build/eeprom.d \
 build/main.d \

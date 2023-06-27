@@ -15,6 +15,8 @@
 #define DISPLAY_TYPE_BAFANG (1<<2)							// For 'Blaupunkt' Display of Prophete Entdecker
 #define DISPLAY_TYPE_KUNTENG (1<<1)							// For ASCII-Output in Debug mode
 #define DISPLAY_TYPE_DEBUG (1<<0)							// For ASCII-Output in Debug mode);
+#define DISPLAY_TYPE_ECORIDE_C2 (1<<6)                  // Ecoride C2 similar to 901U protocol (KM5s)
+#define DISPLAY_TYPE_ECORIDE      (DISPLAY_TYPE_ECORIDE_C2)
 
 #define TRIGGER_OFFSET_ADC 50
 #define TRIGGER_DEFAULT 2020
@@ -54,7 +56,8 @@
 #define FRAC_LOW 15
 //#define TS_MODE
 //#define TQONAD1
-#define DISPLAY_TYPE DISPLAY_TYPE_DEBUG
+//#define DISPLAY_TYPE DISPLAY_TYPE_DEBUG
+#define DISPLAY_TYPE DISPLAY_TYPE_ECORIDE
 #define REVERSE 1
 #define PUSHASSIST_CURRENT 300
 #define VOLTAGE_MIN 300

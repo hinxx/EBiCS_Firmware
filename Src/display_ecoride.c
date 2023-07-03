@@ -193,10 +193,17 @@ static void C2_Service(ECORIDE_t *ctx)
 			// HAL_UART_Transmit(&huart3, (uint8_t *)&KM_Message, Rx_message_length,50);
 			// Decode Rx message
 
+			// C2: There are only 2 bytes of data in this message (4 and 5)
+			// C2: 3A 1A 52 02 00 00 6E 00 0D 0A ; no assist, light off
+			//     3A 1A 52 02 FF 88 F5 01 0D 0A ; power assist, light on
+			// C2: values 0x00 (off), 0x66 (low), 0x8c (normal), 0xcc (high), 0xff (power); tested on the bike
 			ctx->Rx.AssistLevel = KM_Message[4];					// 0..255
 			// ctx->Rx.Headlight = (KM_Message[5] & 0xC0) >> 6;		// KM_HEADLIGHT_OFF / KM_HEADLIGHT_ON / KM_HEADLIGHT_LOW / KM_HEADLIGHT_HIGH
+			// C2: only ON (0x80) or OFF (0x00) available; tested on the bike
 			ctx->Rx.Headlight = (KM_Message[5] & 0x80) >> 7;		// KM_HEADLIGHT_OFF / KM_HEADLIGHT_ON
+			// C2: values 0x00 (not low), 0x20 (low); tested on the bike
 			ctx->Rx.Battery = (KM_Message[5] & 0x20) >> 5;		// KM_BATTERY_NORMAL / KM_BATTERY_LOW
+			// C2: values 0 (off), 2 (low), 4 (normal), 6 (high), 8 (power); tested on the bike
 			ctx->Rx.AssistMode = (KM_Message[5] & 0x0F);	// assist mode (0, 2, 4, 6, 8)
 			// ctx->Rx.PushAssist = (KM_Message[5] & 0x10) >> 4;	// KM_PUSHASSIST_OFF / KM_PUSHASSIST_ON
 			// ctx->Rx.PowerAssist = (KM_Message[5] & 0x08) >> 3;	// KM_POWERASSIST_OFF / KM_POWERASSIST_ON
@@ -238,7 +245,7 @@ static void C2_Service(ECORIDE_t *ctx)
 		// C2: changes from 0D AC (0 kmh) .. 01 38 (25 kmh); tested on the bike
 		TxBuffer[6] = highByte(ctx->Tx.Wheeltime_ms);			// WheelSpeed high Hinweis
 		TxBuffer[7] = lowByte(ctx->Tx.Wheeltime_ms);				// WheelSpeed low
-		// C2: usually 0x00; chnaged to 0x26 on low battery!; tested on the bike
+		// C2: usually 0x00; changed to 0x26 on low battery!; tested on the bike
 		TxBuffer[8] = ctx->Tx.Error;								// Error
 
 		TxCnt = 9;

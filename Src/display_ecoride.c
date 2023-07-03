@@ -212,6 +212,8 @@ static void C2_Service(ECORIDE_t *ctx)
 
 		// C2 0 kmh
 		// 3A 1A 52 05 00 00 0D AC 00 2A 01 0D 0A
+		// C2 max assist
+		// 3a 1a 52 05 00 29 0d ac 00 53 01 0d 0a
 
 		// Prepare Tx message
 		TxBuffer[0] = 0X3A; // StartCode
@@ -221,16 +223,22 @@ static void C2_Service(ECORIDE_t *ctx)
 
 		if (ctx->Tx.Battery == KM_BATTERY_LOW)
 		{
-			TxBuffer[4] = 0x40; // State data (only UnderVoltage bit has influence on display)
+			// TxBuffer[4] = 0x40; // State data (only UnderVoltage bit has influence on display)
+			// C2: when low voltage 0x80; tested value on the bike!
+			TxBuffer[4] = 0x80; // State data (only UnderVoltage bit has influence on display)
 		}
 		else
 		{							  // Byte7 ist autocruise Symbol, Byte6 ist Battery low Symbol
+			// C2: 0x00 when not low voltage
 			TxBuffer[4] = 0b00000000; // State data (only UnderVoltage bit has influence on display)
 		}
 
+		// C2: changes from 0x00 .. 0x29 ; tested on the bike
 		TxBuffer[5] = (uint8_t)((ctx->Tx.Current_x10 * 3) / 10); // Current low Strom in 1/3 Ampere, nur ein Byte
+		// C2: changes from 0D AC (0 kmh) .. 01 38 (25 kmh); tested on the bike
 		TxBuffer[6] = highByte(ctx->Tx.Wheeltime_ms);			// WheelSpeed high Hinweis
 		TxBuffer[7] = lowByte(ctx->Tx.Wheeltime_ms);				// WheelSpeed low
+		// C2: usually 0x00; chnaged to 0x26 on low battery!; tested on the bike
 		TxBuffer[8] = ctx->Tx.Error;								// Error
 
 		TxCnt = 9;

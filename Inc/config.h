@@ -71,6 +71,8 @@
 #define THROTTLE_OVERRIDE
 #define REGEN_CURRENT_MAX 10000
 
+// maximum current for flux weakening in mA
+#define FW_CURRENT_MAX 18000 //max id
 
 #define P_FACTOR_PLL 10
 #define I_FACTOR_PLL 10

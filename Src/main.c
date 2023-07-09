@@ -203,6 +203,8 @@ q31_t Hall_64 = 0;
 q31_t Hall_51 = 0;
 q31_t Hall_45 = 0;
 
+const uint16_t fw_current_max = FW_CURRENT_MAX/(CAL_I>>8);
+
 const q31_t tics_lower_limit = WHEEL_CIRCUMFERENCE*5*3600/(6*GEAR_RATIO*SPEEDLIMIT*10); //tics=wheelcirc*timerfrequency/(no. of hallevents per rev*gear-ratio*speedlimit)*3600/1000000
 const q31_t tics_higher_limit = WHEEL_CIRCUMFERENCE*5*3600/(6*GEAR_RATIO*(SPEEDLIMIT+2)*10);
 uint32_t uint32_tics_filtered=1000000;
@@ -965,6 +967,13 @@ int main(void)
 #if(INT_TEMP_25)
 				MS.i_q_setpoint=map(MS.int_Temperature, 70,80,MS.i_q_setpoint,0); //ramp down power with processor temperatur to avoid overheating the controller
 #endif
+
+			// default value
+			// MS.i_d_setpoint=0;
+			// from https://github.com/Koxx3/SmartESC_STM32_v3/blob/4bd351263779947dabdfd69c4bce9a643eabba9e/Core/Src/main.c#L637
+			// do flux weakaning
+			MS.i_d_setpoint=-map(MS.Speed,(ui32_KV*MS.Voltage/100000)-8,(ui32_KV*MS.Voltage/100000)+30,0,fw_current_max);
+
 
 				//auto KV detect
 			  if(ui8_KV_detect_flag){

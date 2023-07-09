@@ -94,6 +94,8 @@
 #define INT_TEMP_25 0
 #define USE_FIX_POSITIONS 0
 //Put values from the startup message after autodetect here, if you want to use fix positions. 32bit values for the hall angles!
+/*
+//// Default values
 #define KV 80
 #define HALL_ORDER 1
 #define HALL_45 2636578816
@@ -102,6 +104,34 @@
 #define HALL_32 322109440
 #define HALL_26 4092133376
 #define HALL_64 3209232384
+*/
+
+/*
+//// Values obtained with the debug mode run
+		Hall_Order: -1
+		Hall_45: 30
+		Hall_45: 369819648
+		Hall_51: 91
+		Hall_51: 1097596928
+		Hall_13: 152
+		Hall_13: 1825308672
+		Hall_32: -149
+		Hall_32: 2529230848
+		Hall_26: -87
+		Hall_26: 3268935680
+		Hall_64: -30
+		Hall_64: 3948937216
+		KV: 64
+		Lishui FOC v1.0
+*/
+#define KV 64
+#define HALL_ORDER 1
+#define HALL_45 369819648
+#define HALL_51 1097596928
+#define HALL_13 1825308672
+#define HALL_32 2529230848
+#define HALL_26 3268935680
+#define HALL_64 3948937216
 
 
 /* ########################## Assert Selection ############################## */

@@ -78,6 +78,7 @@
 #endif
 
 
+#include <stdlib.h>
 #include <arm_math.h>
 /* USER CODE END Includes */
 
@@ -156,6 +157,14 @@ uint32_t uint32_PAS_fraction= 100;
 uint32_t uint32_SPEED_counter=32000;
 uint32_t uint32_SPEEDx100_cumulated=0;
 uint32_t uint32_PAS=32000;
+
+static q31_t iq_cum=0;
+static q31_t id_cum=0;
+static q31_t uq_cum=0;
+static q31_t ud_cum=0;
+int do_print = 0;
+q31_t oldCurrent;
+q31_t newCurrent;
 
 q31_t q31_rotorposition_PLL = 0;
 q31_t q31_angle_per_tic = 0;
@@ -280,6 +289,7 @@ void init_watchdog(void);
 void MX_IWDG_Init(void);
 void get_internal_temp_offset(void);
 void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
+q31_t get_battery_current(q31_t iq,q31_t id,q31_t uq,q31_t ud);
 
 
 /* USER CODE BEGIN PFP */
@@ -366,6 +376,7 @@ int main(void)
   MP.speedLimit=SPEEDLIMIT;
   MP.battery_current_max = BATTERYCURRENT_MAX;
 
+	MP.phase_current_limit = PH_CURRENT_MAX_NORMAL/((uint16_t)(CAL_I>>8));
 
   //init PI structs
   PI_id.gain_i=I_FACTOR_I_D;
@@ -968,12 +979,74 @@ int main(void)
 				MS.i_q_setpoint=map(MS.int_Temperature, 70,80,MS.i_q_setpoint,0); //ramp down power with processor temperatur to avoid overheating the controller
 #endif
 
+#if 1
 			// default value
 			// MS.i_d_setpoint=0;
 			// from https://github.com/Koxx3/SmartESC_STM32_v3/blob/4bd351263779947dabdfd69c4bce9a643eabba9e/Core/Src/main.c#L637
 			// do flux weakaning
-			MS.i_d_setpoint=-map(MS.Speed,(ui32_KV*MS.Voltage/100000)-8,(ui32_KV*MS.Voltage/100000)+30,0,fw_current_max);
+			// MS.i_q_setpoint_temp = MS.i_q_setpoint;
+			// MS.i_d_setpoint_temp=-map(MS.Speed,(ui32_KV*MS.Voltage/100000)-8,(ui32_KV*MS.Voltage/100000)+30,0,fw_current_max);
+			//printf_("i_d_setpoint %d\n", MS.i_d_setpoint);
+#endif
+///////
 
+		// if (MS.i_q_setpoint_temp > MP.phase_current_limit)
+		// 	MS.i_q_setpoint_temp = MP.phase_current_limit;
+		// if (MS.i_q_setpoint_temp < -MP.phase_current_limit)
+		// 	MS.i_q_setpoint_temp = -MP.phase_current_limit;
+
+		// MS.i_q_setpoint_temp = map(q31_tics_filtered >> 3, tics_higher_limit,
+		// 		tics_lower_limit, 0, MS.i_q_setpoint_temp); //ramp down current at speed limit
+
+		// if((MS.mode&0x07)==sport){//do flux weakaning
+		// 			MS.i_d_setpoint_temp=-map(MS.Speed,(ui32_KV*MS.Voltage/100000)-8,(ui32_KV*MS.Voltage/100000)+30,0,fw_current_max);
+		// 		}
+		// else MS.i_d_setpoint_temp=0;
+
+		MS.i_q_setpoint_temp = int32_temp_current_target;
+		// MS.i_d_setpoint_temp=-map(MS.Speed,(ui32_KV*MS.Voltage/100000)-8,(ui32_KV*MS.Voltage/100000)+30,0,fw_current_max);
+		// MS.i_d_setpoint_temp=0;
+		// MS.i_d_setpoint_temp=-map(tics_to_speed(MS.Speed),(ui32_KV*MS.Voltage/100000)-8,(ui32_KV*MS.Voltage/100000)+30,0,fw_current_max);
+		MS.i_d_setpoint_temp=-map(tics_to_speed(MS.Speed),(ui32_KV*MS.Voltage/10000)-10,(ui32_KV*MS.Voltage/10000)+20,0,fw_current_max);
+
+		//Check and limit absolute value of current vector
+
+		arm_sqrt_q31((MS.i_q_setpoint_temp*MS.i_q_setpoint_temp+MS.i_d_setpoint_temp*MS.i_d_setpoint_temp)<<1,&MS.i_setpoint_abs);
+		MS.i_setpoint_abs = (MS.i_setpoint_abs>>16)+1;
+
+		if(MS.hall_angle_detect_flag){ //run only, if autodetect is not active
+			if (MS.i_setpoint_abs > MP.phase_current_limit) {
+				MS.i_q_setpoint = i8_direction* (MS.i_q_setpoint_temp * MP.phase_current_limit) / MS.i_setpoint_abs; //division!
+				MS.i_d_setpoint = (MS.i_d_setpoint_temp * MP.phase_current_limit) / MS.i_setpoint_abs; //division!
+				MS.i_setpoint_abs = MP.phase_current_limit;
+			} else {
+				MS.i_q_setpoint= i8_direction*MS.i_q_setpoint_temp;
+				MS.i_d_setpoint= MS.i_d_setpoint_temp;
+			}
+		}
+//////
+
+			// from https://github.com/Koxx3/SmartESC_STM32_v3/blob/4bd351263779947dabdfd69c4bce9a643eabba9e/Core/Src/main.c#L711
+		  //calculate battery current
+
+			iq_cum-=iq_cum>>8;
+			iq_cum+=MS.i_q;
+
+			id_cum-=id_cum>>8;
+			id_cum+=MS.i_d;
+
+			uq_cum-=uq_cum>>8;
+			uq_cum+=MS.u_q;
+
+			ud_cum-=ud_cum>>8;
+			ud_cum+=MS.u_d;
+
+			//Battery current in mA
+			//  MS.Battery_Current=get_battery_current(iq_cum>>8,id_cum>>8,uq_cum>>8,ud_cum>>8)*sign(iq_cum) * i8_direction * i8_reverse_flag;
+
+		// oldCurrent = MS.Battery_Current;
+		newCurrent = get_battery_current(iq_cum>>8,id_cum>>8,uq_cum>>8,ud_cum>>8)*sign(iq_cum) * i8_direction * i8_reverse_flag;
+		MS.Battery_Current = newCurrent;
 
 				//auto KV detect
 			  if(ui8_KV_detect_flag){
@@ -1076,7 +1149,7 @@ int main(void)
 		  //print values for debugging
 
 
-		 sprintf_(buffer, "%d, %d, %d, %d, %d, %d, %d, %d, %d\r\n", adcData[7],MS.int_Temperature, i16_int_Temp_V25, MS.i_q_setpoint, uint32_PAS, int32_temp_current_target , MS.u_d,MS.u_q, SystemState);
+		 sprintf_(buffer, "%d, %d, %d, %d, %d, %d, %d, %d, %d | %d %d | %d %d | %d %d %d\r\n", adcData[7],MS.int_Temperature, i16_int_Temp_V25, MS.i_q_setpoint, uint32_PAS, int32_temp_current_target , MS.u_d,MS.u_q, SystemState, MS.i_q_setpoint, MS.i_d_setpoint, oldCurrent, newCurrent, MS.Speed, ui32_KV, MS.Voltage);
 		 // sprintf_(buffer, "%d, %d, %d, %d, %d, %d, %d\r\n",(uint16_t)adcData[0],(uint16_t)adcData[1],(uint16_t)adcData[2],(uint16_t)adcData[3],(uint16_t)(adcData[4]),(uint16_t)(adcData[5]),(uint16_t)(adcData[6])) ;
 		 // sprintf_(buffer, "%d, %d, %d, %d, %d, %d\r\n",tic_array[0],tic_array[1],tic_array[2],tic_array[3],tic_array[4],tic_array[5]) ;
 		  i=0;
@@ -2489,7 +2562,7 @@ int16_t external_tics_to_speedx100 (uint32_t tics){
 
 void runPIcontrol(){
 
-
+#if 0
 		  q31_t_Battery_Current_accumulated -= q31_t_Battery_Current_accumulated>>8;
 		  q31_t_Battery_Current_accumulated += ((MS.i_q*MS.u_abs)>>11)*(uint16_t)(CAL_I>>8);
 
@@ -2505,6 +2578,26 @@ void runPIcontrol(){
 		  else{
 			  if(((MS.i_q_setpoint*MS.u_abs)>>11)*(uint16_t)(CAL_I>>8)>(-REGEN_CURRENT_MAX*7)>>3)ui8_BC_limit_flag=0;
 		  }
+
+#else
+
+			//Check battery current limit
+			if (MS.Battery_Current > BATTERYCURRENT_MAX)
+				ui8_BC_limit_flag = 1;
+			if (MS.Battery_Current < -REGEN_CURRENT_MAX)
+				ui8_BC_limit_flag = 1;
+			//reset battery current flag with small hysteresis
+			//if (MS.i_q * i8_direction * i8_reverse_flag > 100) { //motor mode
+			if(brake_flag==0){
+				if (get_battery_current(MS.i_q_setpoint,MS.i_d_setpoint,uq_cum>>8,ud_cum>>8)
+						<  (BATTERYCURRENT_MAX * 7) >> 3)
+					ui8_BC_limit_flag = 0;
+			} else { //generator mode
+				if (get_battery_current(MS.i_q_setpoint,MS.i_d_setpoint,uq_cum>>8,ud_cum>>8)
+						> (-REGEN_CURRENT_MAX * 7) >> 3) // Battery current not negative yet!!!!
+					ui8_BC_limit_flag = 0;
+			}
+#endif
 
 		  //control iq
 
@@ -2572,6 +2665,17 @@ q31_t speed_PLL (q31_t ist, q31_t soll, uint8_t speedadapt)
     q31_d_dc=q31_p+q31_d_i;
     return (q31_d_dc);
   }
+
+q31_t get_battery_current(q31_t iq,q31_t id,q31_t uq,q31_t ud){
+	q31_t ibatq;
+	q31_t ibatd;
+	// ibatq=(iq * uq *CAL_I) >> 11;
+	// ibatd=(id * ud *CAL_I) >> 11;
+	ibatq=(iq * uq *(CAL_I>>8)) >> 11;
+	ibatd=(id * ud *(CAL_I>>8)) >> 11;
+
+	return abs(ibatd)+abs(ibatq);
+}
 
 #if (R_TEMP_PULLUP)
 int16_t T_NTC(uint16_t ADC) // ADC 12 Bit, 10k Pullup, Rückgabewert in °C

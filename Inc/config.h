@@ -58,7 +58,7 @@
 #define FRAC_LOW 15
 //#define TS_MODE
 //#define TQONAD1
-//#define DISPLAY_TYPE DISPLAY_TYPE_DEBUG
+// #define DISPLAY_TYPE DISPLAY_TYPE_DEBUG
 #define DISPLAY_TYPE DISPLAY_TYPE_ECORIDE
 #define REVERSE 1
 #define PUSHASSIST_CURRENT 300
@@ -73,6 +73,7 @@
 
 // maximum current for flux weakening in mA
 #define FW_CURRENT_MAX 18000 //max id
+#define PH_CURRENT_MAX_NORMAL 28000
 
 #define P_FACTOR_PLL 10
 #define I_FACTOR_PLL 10

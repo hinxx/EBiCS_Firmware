@@ -1003,18 +1003,42 @@ int main(void)
 		// 		}
 		// else MS.i_d_setpoint_temp=0;
 
-		MS.i_q_setpoint_temp = int32_temp_current_target;
-		// MS.i_d_setpoint_temp=-map(MS.Speed,(ui32_KV*MS.Voltage/100000)-8,(ui32_KV*MS.Voltage/100000)+30,0,fw_current_max);
-		// MS.i_d_setpoint_temp=0;
-		// MS.i_d_setpoint_temp=-map(tics_to_speed(MS.Speed),(ui32_KV*MS.Voltage/100000)-8,(ui32_KV*MS.Voltage/100000)+30,0,fw_current_max);
-		MS.i_d_setpoint_temp=-map(tics_to_speed(MS.Speed),(ui32_KV*MS.Voltage/10000)-10,(ui32_KV*MS.Voltage/10000)+20,0,fw_current_max);
+		if(MS.hall_angle_detect_flag && !ui8_KV_detect_flag){ //run only, if autodetect is not active
+			MS.i_q_setpoint_temp = int32_temp_current_target;
 
-		//Check and limit absolute value of current vector
+			// if (MS.i_q_setpoint_temp > MP.phase_current_limit)
+			// 	MS.i_q_setpoint_temp = MP.phase_current_limit;
+			// if (MS.i_q_setpoint_temp < -MP.phase_current_limit)
+			// 	MS.i_q_setpoint_temp = -MP.phase_current_limit;
 
-		arm_sqrt_q31((MS.i_q_setpoint_temp*MS.i_q_setpoint_temp+MS.i_d_setpoint_temp*MS.i_d_setpoint_temp)<<1,&MS.i_setpoint_abs);
-		MS.i_setpoint_abs = (MS.i_setpoint_abs>>16)+1;
+			// MS.i_d_setpoint_temp=-map(MS.Speed,(ui32_KV*MS.Voltage/100000)-8,(ui32_KV*MS.Voltage/100000)+30,0,fw_current_max);
+			// MS.i_d_setpoint_temp=0;
+			// MS.i_d_setpoint_temp=-map(tics_to_speed(MS.Speed),(ui32_KV*MS.Voltage/100000)-8,(ui32_KV*MS.Voltage/100000)+30,0,fw_current_max);
 
-		if(MS.hall_angle_detect_flag){ //run only, if autodetect is not active
+			// MS.i_d_setpoint_temp=-map(tics_to_speed(MS.Speed),(ui32_KV*MS.Voltage/10000)-10,(ui32_KV*MS.Voltage/10000)+20,0,fw_current_max);
+			// MS.i_d_setpoint_temp=-map(tics_to_speed(MS.Speed),(ui32_KV*MS.Voltage/10000)+10,(ui32_KV*MS.Voltage/10000)+30,0,fw_current_max);
+			// MS.i_d_setpoint_temp=-map(tics_to_speed(MS.Speed),(ui32_KV*MS.Voltage/10000)+20,(ui32_KV*MS.Voltage/10000)+60,0,fw_current_max);
+
+			// max 36 kmh ecoride output-ecoride-fieldweak-2/ smooth
+			// MS.i_d_setpoint_temp=-map(tics_to_speed(MS.Speed),(ui32_KV*MS.Voltage/10000)+20,(ui32_KV*MS.Voltage/10000)+40,0,fw_current_max);
+			// max 34 kmh ecoride output-ecoride-fieldweak-3 smooth
+			// MS.i_d_setpoint_temp=-map(tics_to_speed(MS.Speed),(ui32_KV*MS.Voltage/10000)+20,(ui32_KV*MS.Voltage/10000)+50,0,fw_current_max);
+			// max 52 kmh ecoride output-ecoride-fieldweak-4 jerky
+			// MS.i_d_setpoint_temp=-map(tics_to_speed(MS.Speed),(ui32_KV*MS.Voltage/10000)+20,(ui32_KV*MS.Voltage/10000)+30,0,fw_current_max);
+			// max 50 kmh ecoride output-ecoride-fieldweak-5 jerky
+			// MS.i_d_setpoint_temp=-map(tics_to_speed(MS.Speed),(ui32_KV*MS.Voltage/10000)+20,(ui32_KV*MS.Voltage/10000)+35,0,fw_current_max);
+			// max 37 kmh ecoride output-ecoride-fieldweak-6 smooth
+			// MS.i_d_setpoint_temp=-map(tics_to_speed(MS.Speed),(ui32_KV*MS.Voltage/10000)+20,(ui32_KV*MS.Voltage/10000)+37,0,fw_current_max);
+			// max 50 kmh ecoride output-ecoride-fieldweak-7 jerky
+			// MS.i_d_setpoint_temp=-map(tics_to_speed(MS.Speed),(ui32_KV*MS.Voltage/10000)+18,(ui32_KV*MS.Voltage/10000)+37,0,fw_current_max);
+			// max 36 kmh ecoride output-ecoride-fieldweak-8 smooth
+			MS.i_d_setpoint_temp=-map(tics_to_speed(MS.Speed),(ui32_KV*MS.Voltage/10000)+18,(ui32_KV*MS.Voltage/10000)+45,0,fw_current_max);
+
+			//Check and limit absolute value of current vector
+
+			arm_sqrt_q31((MS.i_q_setpoint_temp*MS.i_q_setpoint_temp+MS.i_d_setpoint_temp*MS.i_d_setpoint_temp)<<1,&MS.i_setpoint_abs);
+			MS.i_setpoint_abs = (MS.i_setpoint_abs>>16)+1;
+
 			if (MS.i_setpoint_abs > MP.phase_current_limit) {
 				MS.i_q_setpoint = i8_direction* (MS.i_q_setpoint_temp * MP.phase_current_limit) / MS.i_setpoint_abs; //division!
 				MS.i_d_setpoint = (MS.i_d_setpoint_temp * MP.phase_current_limit) / MS.i_setpoint_abs; //division!
@@ -1051,6 +1075,7 @@ int main(void)
 				//auto KV detect
 			  if(ui8_KV_detect_flag){
 				  MS.i_q_setpoint=ui8_KV_detect_flag;
+				  MS.i_d_setpoint= 0;
 				  if(ui16_KV_detect_counter>32){
 					  ui8_KV_detect_flag++;
 					  ui16_KV_detect_counter=0;
@@ -1108,6 +1133,8 @@ int main(void)
 		  //filter internal temperature reading
 		  ui32_int_Temp_cumulated-=ui32_int_Temp_cumulated>>5;
 		  ui32_int_Temp_cumulated+=adcData[7];
+		  // Avg_Slope 	Average slope 		4.478 mV/°C
+		  // V25		Voltage at 25 °C 	1.4 V
 		  MS.int_Temperature=(((i16_int_Temp_V25-(ui32_int_Temp_cumulated>>5))*24)>>7)+25;
 
 		  MS.Voltage=adcData[0];
@@ -1149,7 +1176,9 @@ int main(void)
 		  //print values for debugging
 
 
-		 sprintf_(buffer, "%d, %d, %d, %d, %d, %d, %d, %d, %d | %d %d | %d %d | %d %d %d\r\n", adcData[7],MS.int_Temperature, i16_int_Temp_V25, MS.i_q_setpoint, uint32_PAS, int32_temp_current_target , MS.u_d,MS.u_q, SystemState, MS.i_q_setpoint, MS.i_d_setpoint, oldCurrent, newCurrent, MS.Speed, ui32_KV, MS.Voltage);
+		 sprintf_(buffer, "%d %d %d %d %d %d %d %d %d %d %d %d %d\r\n",
+		 	adcData[7], MS.int_Temperature, uint32_PAS, int32_temp_current_target, SystemState,
+			MS.i_setpoint_abs, MS.i_q_setpoint, MS.i_d_setpoint, MS.hall_angle_detect_flag, MS.Speed, ui32_KV, MS.Voltage, MS.Battery_Current);
 		 // sprintf_(buffer, "%d, %d, %d, %d, %d, %d, %d\r\n",(uint16_t)adcData[0],(uint16_t)adcData[1],(uint16_t)adcData[2],(uint16_t)adcData[3],(uint16_t)(adcData[4]),(uint16_t)(adcData[5]),(uint16_t)(adcData[6])) ;
 		 // sprintf_(buffer, "%d, %d, %d, %d, %d, %d\r\n",tic_array[0],tic_array[1],tic_array[2],tic_array[3],tic_array[4],tic_array[5]) ;
 		  i=0;

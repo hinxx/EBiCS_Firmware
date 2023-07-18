@@ -378,6 +378,10 @@ int main(void)
 
 	MP.phase_current_limit = PH_CURRENT_MAX_NORMAL/((uint16_t)(CAL_I>>8));
 
+	MP.MinFWSpeed = 20;
+	MP.MaxFWSpeed = 33;
+	MP.Monitor = 0;
+
   //init PI structs
   PI_id.gain_i=I_FACTOR_I_D;
   PI_id.gain_p=P_FACTOR_I_D;
@@ -567,6 +571,8 @@ int main(void)
 
 #endif
 
+	// printf_("tst1\n\n");
+
 #ifdef NCTE
    	while(adcData[1]<THROTTLE_OFFSET)
 #else
@@ -574,6 +580,7 @@ int main(void)
 #endif
    	  	{
    		HAL_IWDG_Refresh(&hiwdg);//do nothing (For Safety at switching on)
+		// printf_("do nothing ADC0 %d ADC1 %d\n", adcData[0], adcData[1]);
    	  	}
    	//read internal temp calibration from emulated EEPROM
    	EE_ReadVariable(EEPROM_INT_TEMP_V25, &i16_int_Temp_V25);
@@ -640,6 +647,7 @@ int main(void)
     printf_("Lishui FOC v1.0 \n ");
 
 #endif
+    printf_("Lishui FOC v1.0 \n ");
 
 
     CLEAR_BIT(TIM1->BDTR, TIM_BDTR_MOE);//Disable PWM
@@ -657,7 +665,7 @@ int main(void)
   while (1)
   {
 	 HAL_IWDG_Refresh(&hiwdg);
-
+	 	// printf_("loop..\n");
 
 	 /* if(PI_flag){
 	  runPIcontrol();
@@ -1032,7 +1040,9 @@ int main(void)
 			// max 50 kmh ecoride output-ecoride-fieldweak-7 jerky
 			// MS.i_d_setpoint_temp=-map(tics_to_speed(MS.Speed),(ui32_KV*MS.Voltage/10000)+18,(ui32_KV*MS.Voltage/10000)+37,0,fw_current_max);
 			// max 36 kmh ecoride output-ecoride-fieldweak-8 smooth
-			MS.i_d_setpoint_temp=-map(tics_to_speed(MS.Speed),(ui32_KV*MS.Voltage/10000)+18,(ui32_KV*MS.Voltage/10000)+45,0,fw_current_max);
+			// MS.i_d_setpoint_temp=-map(tics_to_speed(MS.Speed),(ui32_KV*MS.Voltage/10000)+18,(ui32_KV*MS.Voltage/10000)+45,0,fw_current_max);
+
+			MS.i_d_setpoint_temp=-map(tics_to_speed(MS.Speed),(ui32_KV*MS.Voltage/10000)+MP.MinFWSpeed,(ui32_KV*MS.Voltage/10000)+MP.MaxFWSpeed,0,fw_current_max);
 
 			//Check and limit absolute value of current vector
 
@@ -1071,6 +1081,9 @@ int main(void)
 		// oldCurrent = MS.Battery_Current;
 		newCurrent = get_battery_current(iq_cum>>8,id_cum>>8,uq_cum>>8,ud_cum>>8)*sign(iq_cum) * i8_direction * i8_reverse_flag;
 		MS.Battery_Current = newCurrent;
+		if (newCurrent < 0) {
+			MS.Battery_Current = 0;
+		}
 
 				//auto KV detect
 			  if(ui8_KV_detect_flag){
@@ -1188,8 +1201,72 @@ int main(void)
 
 
 		  ui8_print_flag=0;
-
 #endif
+
+		if (MP.Monitor && ui8_UART_TxCplt_flag) {
+			ui8_UART_TxCplt_flag = 0;
+
+			i = 0;
+			buffer[i++] = 0x3a;
+			buffer[i++] = 0x1a;
+			buffer[i++] = 0x88;	// cmd
+			buffer[i++] = 0x00;	// data len
+			// 4..7: MS.Battery_Current is in mA
+			// buffer[i++] = (uint8_t)((MS.Battery_Current >> 24) & 0xFF);
+			// buffer[i++] = (uint8_t)((MS.Battery_Current >> 16) & 0xFF);
+			// buffer[i++] = (uint8_t)((MS.Battery_Current >> 8) & 0xFF);
+			// buffer[i++] = (uint8_t)((MS.Battery_Current) & 0xFF);
+    		uint16_t Current_x10 = (uint16_t) (MS.Battery_Current/100);
+			buffer[i++] = 0;
+			buffer[i++] = 0;
+			buffer[i++] = (uint8_t)((Current_x10 >> 8) & 0xFF);
+			buffer[i++] = (uint8_t)((Current_x10) & 0xFF);
+			// 8..11:
+			buffer[i++] = (uint8_t)((uint32_SPEEDx100_cumulated >> 24) & 0xFF);
+			buffer[i++] = (uint8_t)((uint32_SPEEDx100_cumulated >> 16) & 0xFF);
+			buffer[i++] = (uint8_t)((uint32_SPEEDx100_cumulated >> 8) & 0xFF);
+			buffer[i++] = (uint8_t)((uint32_SPEEDx100_cumulated) & 0xFF);
+			// 12..15:
+			buffer[i++] = (uint8_t)((MS.Voltage >> 24) & 0xFF);
+			buffer[i++] = (uint8_t)((MS.Voltage >> 16) & 0xFF);
+			buffer[i++] = (uint8_t)((MS.Voltage >> 8) & 0xFF);
+			buffer[i++] = (uint8_t)((MS.Voltage) & 0xFF);
+			// 16..19:
+			buffer[i++] = 0;
+			buffer[i++] = 0;
+			buffer[i++] = (uint8_t)((ui32_KV >> 8) & 0xFF);
+			buffer[i++] = (uint8_t)((ui32_KV) & 0xFF);
+			// 20..23:
+			buffer[i++] = (uint8_t)((MS.i_q >> 24) & 0xFF);
+			buffer[i++] = (uint8_t)((MS.i_q >> 16) & 0xFF);
+			buffer[i++] = (uint8_t)((MS.i_q >> 8) & 0xFF);
+			buffer[i++] = (uint8_t)((MS.i_q) & 0xFF);
+			// 24..27:
+			buffer[i++] = (uint8_t)((MS.i_d >> 24) & 0xFF);
+			buffer[i++] = (uint8_t)((MS.i_d >> 16) & 0xFF);
+			buffer[i++] = (uint8_t)((MS.i_d >> 8) & 0xFF);
+			buffer[i++] = (uint8_t)((MS.i_d) & 0xFF);
+			// 28..31:
+			buffer[i++] = (uint8_t)((int32_temp_current_target >> 24) & 0xFF);
+			buffer[i++] = (uint8_t)((int32_temp_current_target >> 16) & 0xFF);
+			buffer[i++] = (uint8_t)((int32_temp_current_target >> 8) & 0xFF);
+			buffer[i++] = (uint8_t)((int32_temp_current_target) & 0xFF);
+
+			buffer[3] = i - 4;	// actual data len
+
+			uint16_t chksum = 0;
+			uint8_t m;
+			for (m = 1; m < i; m++) {
+				chksum += buffer[m];
+			}
+			buffer[i++] = (uint8_t)(chksum & 0xFF);
+			buffer[i++] = (uint8_t)((chksum >> 8) & 0xFF);
+			buffer[i++] = 0x0d;
+			buffer[i++] = 0x0a;
+
+			HAL_UART_Transmit_DMA(&huart1, (uint8_t *)&buffer, i);
+		}
+
 
 #if (DISPLAY_TYPE == DISPLAY_TYPE_EBiCS)
 		  ui8_slowloop_counter++;
@@ -1666,6 +1743,8 @@ static void MX_USART1_UART_Init(void)
   huart1.Init.BaudRate = 1200;
 #elif (DISPLAY_TYPE == DISPLAY_TYPE_ECORIDE)
   huart1.Init.BaudRate = 9600;
+//   huart1.Init.BaudRate = 115200;	// junk on the port!?
+//   huart1.Init.BaudRate = 57600;
 #else
   huart1.Init.BaudRate = 57600;
 #endif
@@ -2285,6 +2364,18 @@ void ecoride_update(void)
 
 //    MP.speedLimit=KM.Rx.SPEEDMAX_Limit;
 //    MP.battery_current_max = KM.Rx.CUR_Limit_mA;
+
+	// DEBUG
+    MP.MinFWSpeed = ER.Rx.MinFWSpeed;
+    MP.MaxFWSpeed = ER.Rx.MaxFWSpeed;
+	MP.Monitor = ER.Rx.Monitor;
+	ui8_UART_TxCplt_flag = 1;
+
+	ER.Tx.MinFWSpeed = MP.MinFWSpeed;
+	ER.Tx.MaxFWSpeed = MP.MaxFWSpeed;
+	ER.Tx.IqSetpoint = MS.i_q_setpoint;
+	ER.Tx.IdSetpoint = MS.i_d_setpoint;
+	// DEBUG
 }
 #endif
 

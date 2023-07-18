@@ -109,6 +109,11 @@ typedef struct
     // uint16_t SPEEDMAX_Limit; // Unit: km/h
     // uint16_t CUR_Limit_mA;   // Unit: mA
 
+    // DEBUG
+    uint8_t MinFWSpeed;
+    uint8_t MaxFWSpeed;
+    uint8_t Monitor;
+    // DEBUG
 } RX_PARAM_t;
 
 #define KM_ERROR_NONE 0x00
@@ -124,13 +129,19 @@ typedef struct
     uint8_t Error;         // KM_ERROR_NONE, ..
     uint16_t Current_x10;  // Unit: 0.1A
 
+    // DEBUG
+    uint8_t MinFWSpeed;
+    uint8_t MaxFWSpeed;
+    q31_t IqSetpoint;
+    q31_t IdSetpoint;
+    // DEBUG
 } TX_PARAM_t;
 
 #if (DISPLAY_TYPE == DISPLAY_TYPE_ECORIDE_C2)
 // #define KM_MAX_RXBUFF 64
 // #define KM5S_NM_RXBUFF 15 // KM5S RX-Buffer length for normal mode
 #define ECORIDE_MAX_RXBUFF 15
-#define ECORIDE_MAX_TXBUFF 13
+#define ECORIDE_MAX_TXBUFF 64
 #endif
 
 typedef struct

@@ -119,6 +119,11 @@ void Ecoride_Init(ECORIDE_t *ctx)
 	ctx->Tx.Error = KM_ERROR_NONE;
 	ctx->Tx.Current_x10 = 0;
 
+	// DEBUG
+	ctx->Rx.MinFWSpeed = 20;
+	ctx->Rx.MaxFWSpeed = 33;
+	// DEBUG
+
 #if (DISPLAY_TYPE == DISPLAY_TYPE_ECORIDE_C2)
 	// Start UART with DMA
 	if (HAL_UART_Receive_DMA(&huart1, (uint8_t *)ctx->RxBuff, ECORIDE_MAX_RXBUFF) != HAL_OK)
@@ -185,6 +190,8 @@ static void C2_Service(ECORIDE_t *ctx)
 		CheckSum = CheckSum + KM_Message[m]; // Calculate CheckSum
 	}
 	CheckSum -= (KM_Message[m] + ((KM_Message[m + 1]) << 8));
+
+	// printf_("2 %x chk %x\n", KM_Message[2], CheckSum);
 
 	switch (KM_Message[2])
 	{
@@ -310,6 +317,44 @@ static void C2_Service(ECORIDE_t *ctx)
 	// 		ctx->DirectSetpoint = KM_Message[4];
 	// 	}
 	// 	break;
+
+	// DEBUG
+	case 0x99:
+		if (!CheckSum) {
+			ctx->Rx.Monitor = KM_Message[4];
+			ctx->Rx.MinFWSpeed = KM_Message[5];
+			ctx->Rx.MaxFWSpeed = KM_Message[6];
+
+			ecoride_update();
+		}
+
+		TxBuffer[0] = 0X3A; // StartCode
+		TxBuffer[1] = 0x1A; // SrcAdd:  Controller
+		TxBuffer[2] = 0x99; // CmdCode
+		TxBuffer[3] = 0x0F; // Number of Databytes
+		TxBuffer[4] = 0x00;
+		// C2: changes from 0x00 .. 0x29 ; tested on the bike
+		TxBuffer[5] = (uint8_t)((ctx->Tx.Current_x10 * 3) / 10); // Current low Strom in 1/3 Ampere, nur ein Byte
+		// C2: changes from 0D AC (0 kmh) .. 01 38 (25 kmh); tested on the bike
+		TxBuffer[6] = highByte(ctx->Tx.Wheeltime_ms);			// WheelSpeed high Hinweis
+		TxBuffer[7] = lowByte(ctx->Tx.Wheeltime_ms);				// WheelSpeed low
+		// C2: usually 0x00; changed to 0x26 on low battery!; tested on the bike
+		TxBuffer[8] = ctx->Tx.Error;								// Error
+		TxBuffer[9] = ctx->Tx.MinFWSpeed;
+		TxBuffer[10] = ctx->Tx.MaxFWSpeed;
+		TxBuffer[11] = (ctx->Tx.IqSetpoint >> 24) & 0xFF;
+		TxBuffer[12] = (ctx->Tx.IqSetpoint >> 16) & 0xFF;
+		TxBuffer[13] = (ctx->Tx.IqSetpoint >> 8) & 0xFF;
+		TxBuffer[14] = (ctx->Tx.IqSetpoint) & 0xFF;
+		TxBuffer[15] = (ctx->Tx.IdSetpoint >> 24) & 0xFF;
+		TxBuffer[16] = (ctx->Tx.IdSetpoint >> 16) & 0xFF;
+		TxBuffer[17] = (ctx->Tx.IdSetpoint >> 8) & 0xFF;
+		TxBuffer[18] = (ctx->Tx.IdSetpoint) & 0xFF;
+
+		TxCnt = 19;
+		break;
+	// DEBUG
+
 
 	default:
 		TxCnt = 0;
